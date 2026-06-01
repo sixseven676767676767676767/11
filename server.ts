@@ -180,6 +180,11 @@ const getGeminiClient = () => {
    API ENDPOINTS MATCHING THE POSTGRES SCHEMA RELATIONS
    ========================================================================== */
 
+// Health check route
+app.get("/api/health", (req, res) => {
+  res.json({ success: true, status: "healthy" });
+});
+
 // 1. Get or initial user session (by email query)
 app.get("/api/users", (req, res) => {
   const email = (req.query.email as string) || "f132100366@gmail.com";

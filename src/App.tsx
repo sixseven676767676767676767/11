@@ -50,10 +50,51 @@ export default function App() {
   const [noteToDelete, setNoteToDelete] = useState<number | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
-  // Fetch all notes for the user on mount
+  // Server health state hooks
+  const [isHealthy, setIsHealthy] = useState<boolean | null>(null);
+  const [checkingHealth, setCheckingHealth] = useState(true);
+
+  // Fetch all notes for the user on mount after checking API health
   useEffect(() => {
-    fetchNotes();
+    checkBackendHealth();
   }, []);
+
+  const checkBackendHealth = async () => {
+    setCheckingHealth(true);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 6500); // 6.5s timeout
+
+    try {
+      const response = await fetch("/api/health", { signal: controller.signal });
+      clearTimeout(timeoutId);
+      
+      let resData = null;
+      try {
+        resData = await response.json();
+      } catch (jsonErr) {}
+
+      if (response.ok && resData && resData.success) {
+        setIsHealthy(true);
+        fetchNotes();
+      } else {
+        console.warn("Backend health endpoint did not respond successfully:", response.status);
+        setIsHealthy(false);
+        setLoadingNotes(false);
+      }
+    } catch (err) {
+      clearTimeout(timeoutId);
+      console.error("Backend connection timeout or failure:", err);
+      setIsHealthy(false);
+      setLoadingNotes(false);
+    } finally {
+      setCheckingHealth(false);
+    }
+  };
+
+  const handleRetryConnection = () => {
+    setIsHealthy(null);
+    checkBackendHealth();
+  };
 
   // Fetch quizzes whenever the selected note changes
   useEffect(() => {
@@ -496,7 +537,40 @@ export default function App() {
       </aside>
 
       {/* Main Study Zone Pane */}
-      <main className="flex-1 flex flex-col min-w-0 lg:h-screen lg:overflow-hidden overflow-y-auto">
+      <main className="flex-1 flex flex-col min-w-0 lg:h-screen lg:overflow-hidden overflow-y-auto w-full">
+        
+        {/* Connection health warning banner */}
+        {isHealthy === false && (
+          <div className="bg-rose-50 border-b border-rose-100 px-6 py-3 text-xs text-rose-800 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0 animate-fadeIn" id="backend-health-warning">
+            <div className="flex items-center gap-3">
+              <span className="relative flex h-2.5 w-2.5 shrink-0 items-center justify-center">
+                <span className="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+              </span>
+              <p className="font-semibold text-slate-700 text-left leading-relaxed">
+                ⚠️ <strong className="font-extrabold text-red-900">伺服器連線異常：</strong> 
+                系統偵測到目前無法與後台主機正常通訊（可能是專案休眠中、API 載入逾時或 Secrets 的 API 金鑰未正確設定）。請確認您的網路或 Settings 裡的金鑰，並點擊右側按鈕重新載入。
+              </p>
+            </div>
+            <button
+              onClick={handleRetryConnection}
+              disabled={checkingHealth}
+              className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 disabled:bg-rose-350 text-white font-bold rounded-lg shadow-xs transition shrink-0 inline-flex items-center gap-1.5 border-none cursor-pointer text-[10px]"
+            >
+              {checkingHealth ? (
+                <>
+                  <RefreshCw className="w-3 h-3 animate-spin" />
+                  <span>檢查連線中...</span>
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-3 h-3" />
+                  <span>立即重新偵測</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
         
         {/* Top Header navbar */}
         <header className="h-16 shrink-0 bg-white border-b border-slate-200/80 flex items-center justify-between px-4 md:px-8 z-10 shadow-sm shadow-slate-100/30">
