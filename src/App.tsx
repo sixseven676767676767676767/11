@@ -61,34 +61,45 @@ export default function App() {
 
   const checkBackendHealth = async () => {
     setCheckingHealth(true);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6500); // 6.5s timeout
+    let attempts = 4; // Try up to 4 times
+    let healthy = false;
 
-    try {
-      const response = await fetch("/api/health", { signal: controller.signal });
-      clearTimeout(timeoutId);
-      
-      let resData = null;
+    for (let i = 0; i < attempts; i++) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000); // 12 seconds per attempt to accommodate cold starts
+
       try {
-        resData = await response.json();
-      } catch (jsonErr) {}
+        const response = await fetch("/api/health", { signal: controller.signal });
+        clearTimeout(timeoutId);
+        
+        let resData = null;
+        try {
+          resData = await response.json();
+        } catch (jsonErr) {}
 
-      if (response.ok && resData && resData.success) {
-        setIsHealthy(true);
-        fetchNotes();
-      } else {
-        console.warn("Backend health endpoint did not respond successfully:", response.status);
-        setIsHealthy(false);
-        setLoadingNotes(false);
+        if (response.ok && resData && resData.success) {
+          healthy = true;
+          break; // Success!
+        }
+      } catch (err) {
+        clearTimeout(timeoutId);
+        console.warn(`[API Health Check] Attempt ${i + 1} of ${attempts} failed:`, err);
       }
-    } catch (err) {
-      clearTimeout(timeoutId);
-      console.error("Backend connection timeout or failure:", err);
+
+      // Wait 3 seconds before next retry attempt (allowing container to reboot or warm up)
+      if (i < attempts - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+      }
+    }
+
+    if (healthy) {
+      setIsHealthy(true);
+      fetchNotes();
+    } else {
       setIsHealthy(false);
       setLoadingNotes(false);
-    } finally {
-      setCheckingHealth(false);
     }
+    setCheckingHealth(false);
   };
 
   const handleRetryConnection = () => {
