@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Youtube, Mic, Layers, Sparkles, AlertCircle, Link, FileText, CheckCircle2 } from "lucide-react";
 import type { LectureNote, Quiz } from "../types";
+import { generateLocalNotes, getPresetMatchKey } from "../utils/localNotesGenerator";
 
 interface AddNoteFormProps {
   userEmail: string;
@@ -101,6 +102,39 @@ export default function AddNoteForm({ userEmail, onNoteGenerated }: AddNoteFormP
     setLoading(true);
     setError(null);
     setSuccess(false);
+
+    // Bypassing server for presets (offline-first local generation)
+    const matchKey = getPresetMatchKey(title);
+    if (matchKey) {
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+        const { note, quizzes } = generateLocalNotes(title.trim(), sourceType, sourceUrl, rawText);
+
+        const localNotesRaw = localStorage.getItem("studypilot_local_notes");
+        const localNotes = localNotesRaw ? JSON.parse(localNotesRaw) : [];
+        localNotes.push(note);
+        localStorage.setItem("studypilot_local_notes", JSON.stringify(localNotes));
+
+        const localQuizzesRaw = localStorage.getItem("studypilot_local_quizzes");
+        const localQuizzes = localQuizzesRaw ? JSON.parse(localQuizzesRaw) : [];
+        localQuizzes.push(...quizzes);
+        localStorage.setItem("studypilot_local_quizzes", JSON.stringify(localQuizzes));
+
+        setSuccess(true);
+        setTitle("");
+        setSourceUrl("");
+        setRawText("");
+        onNoteGenerated(note, quizzes);
+
+        setTimeout(() => setSuccess(false), 3000);
+      } catch (err: any) {
+        console.error(err);
+        setError("本端生成發生異常，請重試");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
 
     try {
       const response = await fetch("/api/notes", {

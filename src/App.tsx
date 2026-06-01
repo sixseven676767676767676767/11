@@ -122,32 +122,53 @@ export default function App() {
 
   const fetchNotes = async (selectIdToPick?: number) => {
     setLoadingNotes(true);
+    let serverNotes: LectureNote[] = [];
     try {
       const response = await fetch(`/api/notes?email=${encodeURIComponent(userEmail)}`);
       const data = await response.json();
       if (data.success) {
-        setNotes(data.notes || []);
-        // Automatically select notes
-        if (data.notes && data.notes.length > 0) {
-          if (selectIdToPick) {
-            const match = data.notes.find((n: LectureNote) => n.id === selectIdToPick);
-            setSelectedNote(match || data.notes[0]);
-          } else {
-            setSelectedNote(data.notes[0]);
-          }
-        } else {
-          setSelectedNote(null);
-        }
+        serverNotes = data.notes || [];
       }
     } catch (error) {
-      console.error("Failed to load notes:", error);
-    } finally {
-      setLoadingNotes(false);
+      console.error("Failed to load server notes:", error);
     }
+
+    const localNotesRaw = localStorage.getItem("studypilot_local_notes");
+    const localNotes: LectureNote[] = localNotesRaw ? JSON.parse(localNotesRaw) : [];
+
+    // Combine local-first and server notes
+    const combinedNotes = [...localNotes, ...serverNotes];
+    setNotes(combinedNotes);
+
+    // Automatically select notes
+    if (combinedNotes.length > 0) {
+      if (selectIdToPick) {
+        const match = combinedNotes.find((n: LectureNote) => n.id === selectIdToPick);
+        setSelectedNote(match || combinedNotes[0]);
+      } else {
+        const currentSelectedStillExists = selectedNote && combinedNotes.some((n) => n.id === selectedNote.id);
+        if (!currentSelectedStillExists) {
+          setSelectedNote(combinedNotes[0]);
+        }
+      }
+    } else {
+      setSelectedNote(null);
+    }
+    setLoadingNotes(false);
   };
 
   const fetchQuizzes = async (noteId: number) => {
     setLoadingQuizzes(true);
+    if (noteId < 0) {
+      // Local offline notes
+      const localQuizzesRaw = localStorage.getItem("studypilot_local_quizzes");
+      const localQuizzes: Quiz[] = localQuizzesRaw ? JSON.parse(localQuizzesRaw) : [];
+      const matched = localQuizzes.filter((q) => q.note_id === noteId);
+      setQuizzes(matched);
+      setLoadingQuizzes(false);
+      return;
+    }
+
     try {
       const response = await fetch(`/api/notes/${noteId}/quizzes`);
       const data = await response.json();
@@ -170,6 +191,26 @@ export default function App() {
     if (noteToDelete === null) return;
     const id = noteToDelete;
     setNoteToDelete(null);
+
+    if (id < 0) {
+      // Local offline delete
+      const localNotesRaw = localStorage.getItem("studypilot_local_notes");
+      const localNotes: LectureNote[] = localNotesRaw ? JSON.parse(localNotesRaw) : [];
+      const remainingNotes = localNotes.filter((n) => n.id !== id);
+      localStorage.setItem("studypilot_local_notes", JSON.stringify(remainingNotes));
+
+      const localQuizzesRaw = localStorage.getItem("studypilot_local_quizzes");
+      const localQuizzes: Quiz[] = localQuizzesRaw ? JSON.parse(localQuizzesRaw) : [];
+      const remainingQuizzes = localQuizzes.filter((q) => q.note_id !== id);
+      localStorage.setItem("studypilot_local_quizzes", JSON.stringify(remainingQuizzes));
+
+      if (selectedNote?.id === id) {
+        setSelectedNote(null);
+      }
+      fetchNotes();
+      return;
+    }
+
     try {
       const response = await fetch(`/api/notes/${id}`, { method: "DELETE" });
       const data = await response.json();
