@@ -338,20 +338,6 @@ export default function App() {
           </button>
         </div>
 
-        {/* User Account Bar */}
-        <div className="px-4 py-3 bg-slate-50/70 border-b border-slate-100 flex items-center gap-2.5">
-          <div className="w-7 h-7 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 shrink-0">
-            <User className="w-4 h-4" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] text-slate-400 font-medium leading-none">當前登入學號</p>
-            <p className="text-xs font-semibold text-slate-700 truncate mt-0.5">{userEmail}</p>
-          </div>
-          <div className="px-1.5 py-0.5 bg-indigo-50 border border-indigo-100/60 rounded text-[9px] text-indigo-700 font-bold uppercase tracking-wider">
-            Premium
-          </div>
-        </div>
-
         {/* Navigation Content & Filter */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-5">
           
