@@ -327,36 +327,36 @@ DETAILS OF THE INPUT LECTURE:
         promptContext += `\n[NOTE: Direct subtitles/captions were not enabled on YouTube for this video. StudyPilot is automatically executing 'Intelligent Academic Synthesis Mode' based on the title "${title}".]
 
 Perform an expert-level scholarly synthesis to reconstruct and generate:
-1. **重構與編排精美學術擬真課堂逐字稿 (raw_text)**: Since YouTube direct subtitles were not found, synthesize a magnificent, production-grade lecture transcript (about 800-1200 words) for the topic "${title}" in Taiwanese Traditional Chinese. Maintain highly professional academic lecturing tone, section headers, clear explanations of key terms, and definitions.
-2. **學術重點加強摘要 (summary)**: Formulate the AI "summary" using gorgeous Markdown headers, code snippets/diagrams (if relevant), detailed point-by-point explanations of core concepts.
-3. **考前快速記憶秒殺懶人包 (cheat_sheet)**: Formulate a rapid-recall cheat sheet with major definitions, key formulas, index metrics, and pointers, styled beautifully inside Markdown.
-4. **5道實戰模擬測驗 (quizzes)**: Create exactly 5 advanced, conceptual multiple-choice quiz questions matching the technical insights of the class. Offer 4 distinct choices, the correct answer option, and teaching explanations in Traditional Chinese.`;
+1. **重構與編排精美學術擬真課堂逐字稿 (raw_text)**: Since YouTube direct subtitles were not found, synthesize a high-value, concise lecture transcript outline (about 300 words) for the topic "${title}" in Taiwanese Traditional Chinese. Maintain professional academic tone, section headers, clear explanations of key terms.
+2. **學術重點加強摘要 (summary)**: Formulate a tight and dense Markdown "summary" highlighting core concepts with bullet points.
+3. **考前快速記憶秒殺懶人包 (cheat_sheet)**: Formulate a rapid-recall cheat sheet with key vocabulary and pointers inside beautiful Markdown.
+4. **5道實戰模擬測驗 (quizzes)**: Create exactly 5 advanced, conceptual multiple-choice quiz questions matching the technical insights. Offer 4 choices, correct answer, and concise teaching explanations in Traditional Chinese.`;
       } else {
         promptContext += `\nThis is a YouTube Video lecture. We have successfully extracted the actual audio transcript subtitles of this video:
 """
-${youtubeTranscriptText.substring(0, 12000)}
+${youtubeTranscriptText.substring(0, 8000)}
 """
 
 Now, perform a brilliant analysis and formulate the following elements:
-1. **重構與編排精美課堂逐字稿 (raw_text)**: Organize the raw subtitles above into an elegantly-formatted, easy-to-read academic lecture transcript in Taiwan Traditional Chinese. You can structure it using section sub-headings and timestamps (or logical progress segments). Elaborate on technical formulas, concepts, and details referenced in the transcript.
-2. **學術重點加強摘要 (summary)**: Formulate the AI "summary" using gorgeous Markdown headers, code snippets/diagrams (if relevant), detailed point-by-point explanations of core concepts.
-3. **考前快速記憶秒殺懶人包 (cheat_sheet)**: Formulate a rapid-recall cheat sheet with major definitions, key formulas, index metrics, and pointers, styled beautifully inside Markdown.
-4. **5道實戰模擬測驗 (quizzes)**: Create exactly 5 advanced, conceptual multiple-choice quiz questions matching the technical insights of the video transcript. Offer 4 distinct choices, the correct answer option, and teaching explanations in Traditional Chinese.`;
+1. **重構與編排精美課堂逐字稿 (raw_text)**: Organize the raw subtitles into a concise, elegantly-structured lecture transcript (about 300 words) in Taiwan Traditional Chinese. Group into logical progress segments.
+2. **學術重點加強摘要 (summary)**: Formulate the AI "summary" using clean Markdown headers and bullet-points detailing key takeaways.
+3. **考前快速記憶秒殺懶人包 (cheat_sheet)**: Formulate a rapid-recall cheat sheet with major definitions and key formulas inside Markdown.
+4. **5道實戰模擬測驗 (quizzes)**: Create exactly 5 advanced multiple-choice questions with 4 choices, correct answer, and clear, concise explanations.`;
       }
     } else if (source_type === "audio") {
-      promptContext += `\nThis is an Audio Recording. ${raw_text ? `The user provided the following audio transcript draft:\n"""\n${raw_text}\n"""` : 'The audio recording contains content about ' + title + '. Simulate and generate a full, smooth audio transcript.'}
+      promptContext += `\nThis is an Audio Recording. ${raw_text ? `The user provided the following audio transcript draft:\n"""\n${raw_text}\n"""` : 'The audio recording contains content about ' + title + '.'}
 Create:
-1. A finalized, beautiful, structured raw script text ('raw_text') based on this draft/topic.
-2. A premium Markdown 'summary'.
+1. A finalized, concise, beautiful raw script text ('raw_text', about 300 words) based on this content.
+2. A dense, elegant Markdown 'summary'.
 3. A visual high-efficiency 'cheat_sheet'.
-4. Exactly 5 multiple-choice quiz questions ('quizzes') with 4 options and detailed explanations.`;
+4. Exactly 5 multiple-choice quiz questions ('quizzes') with 4 options and concise explanations.`;
     } else { // ppt / doc / manual text
-      promptContext += `\nThis is a Slide/Presentation file or typed context. ${raw_text ? `The text contents pasted or simulated:\n"""\n${raw_text}\n"""` : 'The presentation belongs to ' + title + '.'}
+      promptContext += `\nThis is a Slide/Presentation file or typed context. ${raw_text ? `The text contents pasted:\n"""\n${raw_text}\n"""` : 'The presentation belongs to ' + title + '.'}
 Create:
-1. A polished raw text content representation ('raw_text').
-2. A beautiful Markdown 'summary' emphasizing core structures.
+1. A polished, concise raw text content representation ('raw_text', about 300 words).
+2. A beautiful, dense Markdown 'summary' emphasizing core structures.
 3. A rapid-recall visually formatted 'cheat_sheet' (考前精華懶人包).
-4. Exactly 5 conceptual quizzes ('quizzes') matching this topic with deep answers and Traditional Chinese explanations.`;
+4. Exactly 5 conceptual quizzes ('quizzes') matching this topic with deep answers and concise Traditional Chinese explanations.`;
     }
 
     let data: any = null;
@@ -369,7 +369,7 @@ Create:
 
       for (const model of modelsToTry) {
         if (data) break; // Already generated successfully
-        const maxRetries = model === "gemini-3.5-flash" ? 3 : 2;
+        const maxRetries = model === "gemini-3.5-flash" ? 2 : 1;
 
         for (let attempt = 1; attempt <= maxRetries; attempt++) {
           try {
@@ -378,37 +378,37 @@ Create:
               model: model,
               contents: promptContext,
               config: {
-                systemInstruction: `You MUST return your output strictly in JSON format matching the responseSchema. All text, summary, cheat sheets, and quiz explanations must be strictly in Traditional Chinese (Taiwanese localized terms 繁體中文 台灣用語).`,
+                systemInstruction: `You MUST return your output strictly in JSON format matching the responseSchema. All text, summary, cheat sheets, and quiz explanations must be strictly in Traditional Chinese (Taiwanese localized terms 繁體中文 台灣用語). Keep responses highly concise and high-density to minimize latency.`,
                 responseMimeType: "application/json",
                 responseSchema: {
                   type: Type.OBJECT,
                   properties: {
                     raw_text: {
                       type: Type.STRING,
-                      description: "A comprehensive simulated/refined lecture transcript (at least 500-800 words) of the class in Taiwanese Traditional Chinese. Mark major subdivisions clearly."
+                      description: "A concise structured/refined lecture transcript (about 300 words) in Traditional Chinese. Keep it high-density, professional."
                     },
                     summary: {
                       type: Type.STRING,
-                      description: "A magnificent academic summary with key highlights, nested bullet-points, and professional Markdown."
+                      description: "A dense, high-yield academic summary with nested bullet-points of core concepts in clean Markdown."
                     },
                     cheat_sheet: {
                       type: Type.STRING,
-                      description: "A fast memory-retrieval guide with formulas, vocabulary definition cards, or comparison tables, formatted inside exquisite markdown."
+                      description: "A rapid-recall memory guide (formulas, major concepts) formatted inside clean, compact markdown."
                     },
                     quizzes: {
                       type: Type.ARRAY,
-                      description: "Precisely 5 high-quality, non-trivial, conceptual multiple-choice quizzes to assess understanding.",
+                      description: "Precisely 5 high-quality conceptual multiple-choice quizzes.",
                       items: {
                         type: Type.OBJECT,
                         properties: {
-                          question: { type: Type.STRING, description: "The single question, e.g. '根據本節課程，以下關於〇〇的敘述何者正確？'" },
+                          question: { type: Type.STRING, description: "The quiz question in Taiwanese Traditional Chinese" },
                           options: {
                             type: Type.ARRAY,
                             items: { type: Type.STRING },
-                            description: "Strictly 4 choices prefixing with label like 'A. ...', 'B. ...', etc."
+                            description: "Exactly 4 choices prefixed with label like 'A. ...', 'B. ...', etc."
                           },
                           correct_answer: { type: Type.STRING, description: "Strictly one of 'A', 'B', 'C', or 'D'." },
-                          explanation: { type: Type.STRING, description: "High-quality teaching explanation details in Taiwanese Traditional Chinese." }
+                          explanation: { type: Type.STRING, description: "Concise teaching explanation (1-2 sentences) in Taiwanese Traditional Chinese." }
                         },
                         required: ["question", "options", "correct_answer", "explanation"]
                       }
@@ -434,7 +434,7 @@ Create:
             
             // Wait with backoff before next attempt for rate-limiting or 503 errors
             if (attempt < maxRetries) {
-              const delay = attempt * 1200;
+              const delay = attempt * 1000;
               console.log(`[Gemini Retry] Waiting ${delay}ms before next retry...`);
               await new Promise((resolve) => setTimeout(resolve, delay));
             }
@@ -459,19 +459,19 @@ Create:
       try {
         console.log("Calling OpenAI API (gpt-4o-mini)...");
         const openai = new OpenAI({ apiKey: openaiKey });
-        const systemPrompt = `You are a masterful educational AI assistant. You MUST return your output strictly in JSON format matching the requested schema. All text, summary, cheat sheets, and quiz explanations must be strictly in Traditional Chinese (Taiwanese localized terms 繁體中文 台灣用語, e.g., 變形器, 機器學習, 上下文, 幻覺, 暫存、神經網路、前饋傳導網絡等).
+        const systemPrompt = `You are a masterful educational AI assistant. You MUST return your output strictly in JSON format matching the requested schema. All text, summary, cheat sheets, and quiz explanations must be strictly in Traditional Chinese (Taiwanese localized terms 繁體中文 台灣用語). Keep responses highly concise and high-density to minimize latency.
 
 Expected JSON Structure:
 {
-  "raw_text": "A comprehensive simulated/refined lecture transcript (at least 500-800 words) of the class in Taiwanese Traditional Chinese. Mark major subdivisions clearly.",
-  "summary": "A magnificent academic summary with key highlights, nested bullet-points, and professional Markdown.",
-  "cheat_sheet": "A fast memory-retrieval guide with formulas, vocabulary definition cards, or comparison tables, formatted inside exquisite markdown.",
+  "raw_text": "A concise structured/refined lecture transcript (about 300 words) in Traditional Chinese. Keep it high-density, professional.",
+  "summary": "A dense, high-yield academic summary with nested bullet-points of core concepts in clean Markdown.",
+  "cheat_sheet": "A rapid-recall memory guide (formulas, major concepts) formatted inside clean, compact markdown.",
   "quizzes": [
     {
-      "question": "The single question, e.g. '根據本節課程，以下關於〇〇的敘述何者正確？'",
+      "question": "The quiz question in Taiwanese Traditional Chinese",
       "options": ["A. ...", "B. ...", "C. ...", "D. ..."],
       "correct_answer": "A",
-      "explanation": "High-quality teaching explanation details in Taiwanese Traditional Chinese."
+      "explanation": "Concise teaching explanation (1-2 sentences) in Taiwanese Traditional Chinese."
     }
   ]
 }

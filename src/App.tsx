@@ -940,7 +940,7 @@ export default function App() {
               </div>
               <h2 className="text-lg font-bold font-display text-slate-800 mb-2">開始您的 AI 互動智慧學習之旅</h2>
               <p className="text-xs text-slate-500 leading-relaxed max-w-sm mx-auto mb-6">
-                您目前還沒有建立或點選任何課程講義。您可以貼上簡報、課堂講稿，或甚至直接輸入 YouTube 影片網址，Gemini AI 會立刻編製出課堂逐字稿、關鍵要點、快速考前衝刺卡片，以及擬真模擬試題!
+                您目前還沒有建立或點選任何課程講義。您可以貼上簡報、課堂講稿，或甚至直接輸入 YouTube 影片網址，AI 會立刻編製出課堂逐字稿、關鍵要點、快速考前衝刺卡片，以及擬真模擬試題!
               </p>
               <button
                 onClick={() => setShowAddModal(true)}

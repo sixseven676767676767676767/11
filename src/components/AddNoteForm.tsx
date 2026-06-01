@@ -115,14 +115,13 @@ export default function AddNoteForm({ userEmail, onNoteGenerated }: AddNoteFormP
         })
       });
 
+      const rawTextResponse = await response.text();
       let resData: any = null;
-      const contentType = response.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        resData = await response.json();
-      } else {
-        const errText = await response.text();
-        const shortErr = errText.length > 150 ? errText.substring(0, 150) + "..." : errText;
-        throw new Error(`伺服器連線異常 (代碼 ${response.status}): ${shortErr}`);
+      try {
+        resData = JSON.parse(rawTextResponse);
+      } catch (jsonErr) {
+        const shortErr = rawTextResponse.length > 150 ? rawTextResponse.substring(0, 150) + "..." : rawTextResponse;
+        throw new Error(`伺服器連線異常或逾時 (代碼 ${response.status}): ${shortErr}`);
       }
 
       if (!response.ok || !resData.success) {
@@ -157,7 +156,7 @@ export default function AddNoteForm({ userEmail, onNoteGenerated }: AddNoteFormP
             </div>
           </div>
           <h3 className="text-lg font-bold font-display text-slate-800 mb-1">
-            Gemini AI 正在編製教材...
+            AI 智慧學伴正在編製教材...
           </h3>
           <p className="text-sm text-slate-500 max-w-xs leading-relaxed">
             這大約需要 10-15 秒。系統正在生成：
@@ -287,7 +286,7 @@ export default function AddNoteForm({ userEmail, onNoteGenerated }: AddNoteFormP
                   <FileText className="w-3.5 h-3.5 text-slate-400" />
                   手動貼上教材 / 重點口述 (Raw Text)
                 </label>
-                <span className="text-[10px] text-slate-400">填寫後 Gemini 將優化編撰</span>
+                <span className="text-[10px] text-slate-400">填寫後 AI 將優化編撰</span>
               </div>
               <textarea
                 id="raw-text-input"
