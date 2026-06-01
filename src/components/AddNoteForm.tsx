@@ -115,9 +115,18 @@ export default function AddNoteForm({ userEmail, onNoteGenerated }: AddNoteFormP
         })
       });
 
-      const resData = await response.json();
+      let resData: any = null;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        resData = await response.json();
+      } else {
+        const errText = await response.text();
+        const shortErr = errText.length > 150 ? errText.substring(0, 150) + "..." : errText;
+        throw new Error(`伺服器連線異常 (代碼 ${response.status}): ${shortErr}`);
+      }
+
       if (!response.ok || !resData.success) {
-        throw new Error(resData.error || "伺服器生成失敗，請檢查 API 金鑰設置");
+        throw new Error(resData?.error || "伺服器生成失敗，請檢查 API 金鑰設置");
       }
 
       setSuccess(true);

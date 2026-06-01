@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
+import OpenAI from "openai";
 import dotenv from "dotenv";
 import { YoutubeTranscript } from "youtube-transcript";
 import type { DatabaseState, LectureNote, Quiz, User } from "./src/types";
@@ -263,14 +264,14 @@ app.post("/api/notes", async (req, res) => {
       writeDb(db);
     }
 
-    console.log(`Generating study contents via Gemini for node title: "${title}" (${source_type})...`);
+    const geminiKey = process.env.GEMINI_API_KEY;
+    const openaiKey = process.env.OPENAI_API_KEY;
 
-    // Guard against missing API key
-    if (!process.env.GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not defined on the server side. Please ensure it is setup in Settings > Secrets.");
+    if (!geminiKey && !openaiKey) {
+      throw new Error("伺服器端未偵測到 API 金鑰。請前往 Settings > Secrets 設定 GEMINI_API_KEY 或 OPENAI_API_KEY。");
     }
 
-    const ai = getGeminiClient();
+    console.log(`Generating study contents via AI for node title: "${title}" (${source_type})...`);
 
     let youtubeTranscriptText = "";
     let isFallback = false;
@@ -358,59 +359,154 @@ Create:
 4. Exactly 5 conceptual quizzes ('quizzes') matching this topic with deep answers and Traditional Chinese explanations.`;
     }
 
-    console.log("Calling Gemini API...");
+    let data: any = null;
+    let fallbackToOpenAI = false;
+    let lastGeminiError: any = null;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
-      contents: promptContext,
-      config: {
-        systemInstruction: `You MUST return your output strictly in JSON format matching the responseSchema. All text, summary, cheat sheets, and quiz explanations must be strictly in Traditional Chinese (Taiwanese localized terms 繁體中文 台灣用語).`,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            raw_text: {
-              type: Type.STRING,
-              description: "A comprehensive simulated/refined lecture transcript (at least 500-800 words) of the class in Taiwanese Traditional Chinese. Mark major subdivisions clearly."
-            },
-            summary: {
-              type: Type.STRING,
-              description: "A magnificent academic summary with key highlights, nested bullet-points, and professional Markdown."
-            },
-            cheat_sheet: {
-              type: Type.STRING,
-              description: "A fast memory-retrieval guide with formulas, vocabulary definition cards, or comparison tables, formatted inside exquisite markdown."
-            },
-            quizzes: {
-              type: Type.ARRAY,
-              description: "Precisely 5 high-quality, non-trivial, conceptual multiple-choice quizzes to assess understanding.",
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  question: { type: Type.STRING, description: "The single question, e.g. '根據本節課程，以下關於〇〇的敘述何者正確？'" },
-                  options: {
-                    type: Type.ARRAY,
-                    items: { type: Type.STRING },
-                    description: "Strictly 4 choices prefixing with label like 'A. ...', 'B. ...', etc."
+    if (geminiKey) {
+      const modelsToTry = ["gemini-3.5-flash", "gemini-3.1-flash-lite"];
+      const ai = getGeminiClient();
+
+      for (const model of modelsToTry) {
+        if (data) break; // Already generated successfully
+        const maxRetries = model === "gemini-3.5-flash" ? 3 : 2;
+
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          try {
+            console.log(`[Gemini Request] Using model: ${model}, Attempt ${attempt}/${maxRetries} for title "${title}"...`);
+            const response = await ai.models.generateContent({
+              model: model,
+              contents: promptContext,
+              config: {
+                systemInstruction: `You MUST return your output strictly in JSON format matching the responseSchema. All text, summary, cheat sheets, and quiz explanations must be strictly in Traditional Chinese (Taiwanese localized terms 繁體中文 台灣用語).`,
+                responseMimeType: "application/json",
+                responseSchema: {
+                  type: Type.OBJECT,
+                  properties: {
+                    raw_text: {
+                      type: Type.STRING,
+                      description: "A comprehensive simulated/refined lecture transcript (at least 500-800 words) of the class in Taiwanese Traditional Chinese. Mark major subdivisions clearly."
+                    },
+                    summary: {
+                      type: Type.STRING,
+                      description: "A magnificent academic summary with key highlights, nested bullet-points, and professional Markdown."
+                    },
+                    cheat_sheet: {
+                      type: Type.STRING,
+                      description: "A fast memory-retrieval guide with formulas, vocabulary definition cards, or comparison tables, formatted inside exquisite markdown."
+                    },
+                    quizzes: {
+                      type: Type.ARRAY,
+                      description: "Precisely 5 high-quality, non-trivial, conceptual multiple-choice quizzes to assess understanding.",
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          question: { type: Type.STRING, description: "The single question, e.g. '根據本節課程，以下關於〇〇的敘述何者正確？'" },
+                          options: {
+                            type: Type.ARRAY,
+                            items: { type: Type.STRING },
+                            description: "Strictly 4 choices prefixing with label like 'A. ...', 'B. ...', etc."
+                          },
+                          correct_answer: { type: Type.STRING, description: "Strictly one of 'A', 'B', 'C', or 'D'." },
+                          explanation: { type: Type.STRING, description: "High-quality teaching explanation details in Taiwanese Traditional Chinese." }
+                        },
+                        required: ["question", "options", "correct_answer", "explanation"]
+                      }
+                    }
                   },
-                  correct_answer: { type: Type.STRING, description: "Strictly one of 'A', 'B', 'C', or 'D'." },
-                  explanation: { type: Type.STRING, description: "High-quality teaching explanation details in Taiwanese Traditional Chinese." }
-                },
-                required: ["question", "options", "correct_answer", "explanation"]
+                  required: ["raw_text", "summary", "cheat_sheet", "quizzes"]
+                }
               }
+            });
+
+            const outputText = response.text;
+            if (!outputText) {
+              throw new Error("No output was generated by Gemini.");
             }
-          },
-          required: ["raw_text", "summary", "cheat_sheet", "quizzes"]
+            data = JSON.parse(outputText);
+            console.log(`[Gemini Success] Successfully generated content using model: ${model}`);
+            break; // Success! Break retry loop
+          } catch (geminiErr: any) {
+            lastGeminiError = geminiErr;
+            const status = geminiErr.status || geminiErr.code;
+            const errMsg = geminiErr.message || JSON.stringify(geminiErr);
+            console.warn(`[Gemini Warning] Model ${model} Attempt ${attempt} failed with status ${status}: ${errMsg}`);
+            
+            // Wait with backoff before next attempt for rate-limiting or 503 errors
+            if (attempt < maxRetries) {
+              const delay = attempt * 1200;
+              console.log(`[Gemini Retry] Waiting ${delay}ms before next retry...`);
+              await new Promise((resolve) => setTimeout(resolve, delay));
+            }
+          }
         }
       }
-    });
 
-    const outputText = response.text;
-    if (!outputText) {
-      throw new Error("No output was generated by Gemini.");
+      if (!data) {
+        console.error("All Gemini models/attempts failed.", lastGeminiError);
+        if (openaiKey) {
+          console.warn("Gemini service is encountering temporary issues (e.g. 503). Gracefully falling back to OpenAI...");
+          fallbackToOpenAI = true;
+        } else {
+          const statusStr = lastGeminiError?.status || lastGeminiError?.code || '503';
+          const msgStr = lastGeminiError?.message || JSON.stringify(lastGeminiError);
+          throw new Error(`Gemini 智慧生成服務此時繁忙或發生異常 (${statusStr}): ${msgStr}。請稍候幾分鐘再試。`);
+        }
+      }
     }
 
-    const data = JSON.parse(outputText);
+    if (!geminiKey || fallbackToOpenAI) {
+      try {
+        console.log("Calling OpenAI API (gpt-4o-mini)...");
+        const openai = new OpenAI({ apiKey: openaiKey });
+        const systemPrompt = `You are a masterful educational AI assistant. You MUST return your output strictly in JSON format matching the requested schema. All text, summary, cheat sheets, and quiz explanations must be strictly in Traditional Chinese (Taiwanese localized terms 繁體中文 台灣用語, e.g., 變形器, 機器學習, 上下文, 幻覺, 暫存、神經網路、前饋傳導網絡等).
+
+Expected JSON Structure:
+{
+  "raw_text": "A comprehensive simulated/refined lecture transcript (at least 500-800 words) of the class in Taiwanese Traditional Chinese. Mark major subdivisions clearly.",
+  "summary": "A magnificent academic summary with key highlights, nested bullet-points, and professional Markdown.",
+  "cheat_sheet": "A fast memory-retrieval guide with formulas, vocabulary definition cards, or comparison tables, formatted inside exquisite markdown.",
+  "quizzes": [
+    {
+      "question": "The single question, e.g. '根據本節課程，以下關於〇〇的敘述何者正確？'",
+      "options": ["A. ...", "B. ...", "C. ...", "D. ..."],
+      "correct_answer": "A",
+      "explanation": "High-quality teaching explanation details in Taiwanese Traditional Chinese."
+    }
+  ]
+}
+Note: You must generate EXACTLY 5 high-quality, non-trivial, conceptual multiple-choice quizzes in the 'quizzes' array.`;
+
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: promptContext }
+          ],
+          response_format: { type: "json_object" }
+        });
+
+        const outputText = response.choices[0].message.content;
+        if (!outputText) {
+          throw new Error("No output was generated by OpenAI.");
+        }
+        data = JSON.parse(outputText);
+        console.log("[OpenAI Success] Successfully generated content using GPT-4o-mini.");
+      } catch (openaiErr: any) {
+        console.error("OpenAI model generation failed with error:", openaiErr);
+        // Map the errors clearly so the user understands both Gemini and OpenAI failed
+        const openAiMsg = openaiErr.message || JSON.stringify(openaiErr);
+        const geminiMsg = lastGeminiError ? (lastGeminiError.message || JSON.stringify(lastGeminiError)) : "服務不可用";
+        throw new Error(`AI 生成服務發生錯誤：
+1. Gemini 雲端服務此時過載或中斷：${geminiMsg}
+2. 備份 OpenAI 生成亦發生錯誤：${openAiMsg}
+
+💡 解決建議：
+- 此為 AI 服務商端暫時性流量分配不均或配額 (Quota) 已滿。
+- 請稍等 1-2 分鐘再點擊一次，通常模型即可恢復。
+- 或者請重新確認 Settings > Secrets 的金鑰是否有效。`);
+      }
+    }
 
     // Save to localized db
     const noteId = db.lecture_notes.length ? Math.max(...db.lecture_notes.map((n) => n.id)) + 1 : 1;
