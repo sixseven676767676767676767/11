@@ -1,0 +1,6 @@
+{
+  "name": "AI Lecture Notes & Quiz Workspace",
+  "description": "An interactive study companion that transforms lectures, YouTube URLs, and documents into key summaries, visual cheat sheets, and randomized self-assessment quizzes using server-side Gemini AI.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
